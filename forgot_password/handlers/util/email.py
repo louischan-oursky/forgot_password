@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import os
 
+import boto3
 import pyzmail
 
 logger = logging.getLogger(__name__)
@@ -21,8 +23,32 @@ logger = logging.getLogger(__name__)
 class Mailer:
     def __init__(self, **smtp_params):
         self.smtp_params = smtp_params
+        if os.getenv('FORGOT_PASSWORD_AWSSES_REGION') is not None:
+            region = os.environ['FORGOT_PASSWORD_AWSSES_REGION']
+            self.awsses_client = boto3.client('ses', region_name=region)
+        else:
+            self.awsses_client = None
 
     def send_mail(self, sender, to, subject, text, html=None, reply_to=None):
+        if self.awsses_client is None:
+            return self._smtp(
+                sender=sender,
+                to=to,
+                subject=subject,
+                text=text,
+                html=html,
+                reply_to=reply_to,
+            )
+        return self._awsses(
+            sender=sender,
+            to=to,
+            subject=subject,
+            text=text,
+            html=html,
+            reply_to=reply_to,
+        )
+
+    def _smtp(self, sender, to, subject, text, html=None, reply_to=None):
         """
         Send email to user.
         """
@@ -43,6 +69,39 @@ class Mailer:
                                mail_from,
                                rcpt_to,
                                **self.smtp_params)
+        except Exception as e:
+            logger.exception('Unable to send email to the receipient.')
+            raise Exception('Unable to send email to the receipient.')
+
+    def _awsses(self, sender, to, subject, text, html=None, reply_to=None):
+        CHARSET = 'UTF-8'
+        request = {
+            'Source': sender,
+            'Destination': {
+                'ToAddresses': [to],
+            },
+            'Message': {
+                'Subject': {
+                    'Charset': CHARSET,
+                    'Data': subject,
+                },
+                'Body': {
+                    'Text': {
+                        'Charset': CHARSET,
+                        'Data': text,
+                    },
+                },
+            },
+        }
+        if html is not None:
+            request['Message']['Body']['Html'] = {
+                'Charset': CHARSET,
+                'Data': html,
+            }
+        if reply_to is not None:
+            request['ReplyToAddresses'] = [reply_to]
+        try:
+            self.awsses_client.send_email(**request)
         except Exception as e:
             logger.exception('Unable to send email to the receipient.')
             raise Exception('Unable to send email to the receipient.')
