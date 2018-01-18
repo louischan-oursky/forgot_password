@@ -44,6 +44,7 @@ setup(
             'Jinja2>=2.8',
             'pyzmail36>=1.0.3',
             'skygear>=0.16.0',
+            'boto3>=1.0.0',
       ],
       cmdclass= {'test': PyTest},
       tests_require=[
