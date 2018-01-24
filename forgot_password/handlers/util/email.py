@@ -25,7 +25,14 @@ class Mailer:
         self.smtp_params = smtp_params
         if os.getenv('FORGOT_PASSWORD_AWSSES_REGION') is not None:
             region = os.environ['FORGOT_PASSWORD_AWSSES_REGION']
-            self.awsses_client = boto3.client('ses', region_name=region)
+            access_key = os.getenv('FORGOT_PASSWORD_AWSSES_ACCESS_KEY')
+            secret_key = os.getenv('FORGOT_PASSWORD_AWSSES_SECRET_KEY')
+            self.awsses_client = boto3.client(
+                'ses',
+                region_name=region,
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+            )
         else:
             self.awsses_client = None
 
